@@ -47,31 +47,49 @@ class MapServer {
     /* generates a random map preset to use for local session */
     generate(mapName) {
         let data = this.maps[mapName];
-
-        // generate loot
         let lootCount = settings.gameplay.maploot[mapName];
-        let keys = Object.keys(filepaths.maps[mapName].loot);
+        let mapLoots = [];
 
-        for (let i = 0; i < lootCount; i++) {
-            let item = json.parse(json.read(filepaths.maps[mapName].loot[keys[utility.getRandomInt(0, keys.length - 1)]]));
-            let found = false;
-
-            // check for duplicate
-            for (let loot of data.Loot) {
-                if (item.Id == loot.Id) {
-                    found = true;
-                    break;
-                }
+        // Regroup loots by Id
+        let staticLoots = new Map();
+        let dynamicLoots = new Map();
+        let allLoots = filepaths.maps[mapName].loot;
+        let keys = Object.keys(allLoots);
+        let n = keys.length;
+        while (n --> 0) { // loop on all possible loots
+            let loot = json.parse(json.read(allLoots[keys[n]]));
+            let map = loot.IsStatic ? staticLoots : dynamicLoots;
+            if (!map.has(loot.Id)) {
+                map.set(loot.Id, []);
             }
-
-            if (found) {
-                continue;
-            }
-
-            // add unique spawn
-            data.Loot.push(item);
+            map.get(loot.Id).push(loot);
         }
 
+        // Take lootCount dynamic loots
+        // First, take one random instance of each dynamic loot
+        for (let inst of dynamicLoots.values()) {
+            let rand = utility.getRandomInt(0, inst.length - 1);
+            mapLoots.push(inst[rand]);
+        }
+        // Then shuffle them using Fisher-Yates and take what we need
+        if (mapLoots.length > lootCount) {
+            let tmp, j, i = mapLoots.length;
+            while (i --> 1) {
+                j = utility.getRandomInt(0, i);
+                tmp = mapLoots[i];
+                mapLoots[i] = mapLoots[j];
+                mapLoots[j] = tmp;
+            }
+            mapLoots.splice(0, mapLoots.length - lootCount);
+        }
+
+        // And finally, add all statics
+        for (let inst of staticLoots.values()) {
+            let rand = utility.getRandomInt(0, inst.length - 1);
+            mapLoots.push(inst[rand]);
+        }
+
+        data.Loot = mapLoots;
         return data;
     }
 
