@@ -47,29 +47,25 @@ class MapServer {
     /* generates a random map preset to use for local session */
     generate(mapName) {
         let data = this.maps[mapName];
+        data.Loot = [];
 
-        // generate loot
-        let lootCount = settings.gameplay.maploot[mapName];
-        let keys = Object.keys(filepaths.maps[mapName].loot);
-
-        for (let i = 0; i < lootCount; i++) {
-            let item = json.parse(json.read(filepaths.maps[mapName].loot[keys[utility.getRandomInt(0, keys.length - 1)]]));
-            let found = false;
-
-            // check for duplicate
-            for (let loot of data.Loot) {
-                if (item.Id == loot.Id) {
-                    found = true;
-                    break;
-                }
+        // Regroup loots by Id
+        let lootsById = new Map();
+        let allLoots = filepaths.maps[mapName].loot;
+        let keys = Object.keys(allLoots);
+        let n = keys.length;
+        while (n --> 0) {
+            let loot = json.parse(json.read(allLoots[keys[n]]));
+            if (!lootsById.has(loot.Id)) {
+                lootsById.set(loot.Id, []);
             }
+            lootsById.get(loot.Id).push(loot);
+        }
 
-            if (found) {
-                continue;
-            }
-
-            // add unique spawn
-            data.Loot.push(item);
+        // Take a random instance of each loot
+        for (let inst of lootsById.values()) {
+            let rand = utility.getRandomInt(0, inst.length - 1);
+            data.Loot.push(inst[rand]);
         }
 
         return data;
